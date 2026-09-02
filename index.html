@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>會議室預約看板</title>
+<style>
+  /* ===== 基本樣式 ===== */
+  * { box-sizing: border-box; }
+  :root {
+    --邊框: #d5d9e0;
+    --底色: #f4f6f9;
+    --卡片底: #ffffff;
+    --文字: #1f2430;
+    --次要文字: #6b7280;
+    --主色: #2563eb;
+    --主色淡: #dbe6ff;
+    --已預約底: #e8f0ff;
+    --已預約邊: #9db8f0;
+    --現在線: #e11d48;
+    --危險: #dc2626;
+  }
+  body {
+    margin: 0;
+    font: 15px/1.5 "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    color: var(--文字);
+    background: var(--底色);
+  }
+
+  /* ===== 頂部工具列 ===== */
+  header.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--卡片底);
+    border-bottom: 1px solid var(--邊框);
+  }
+  header.toolbar h1 {
+    font-size: 18px;
+    margin: 0 12px 0 0;
+  }
+  .date-title {
+    font-size: 16px;
+    font-weight: 600;
+    min-width: 200px;
+    text-align: center;
+  }
+  .date-title .today-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 12px;
+    color: #fff;
+    background: var(--主色);
+    border-radius: 999px;
+  }
+  .spacer { flex: 1 1 auto; }
+  button {
+    font: inherit;
+    padding: 6px 12px;
+    border: 1px solid var(--邊框);
+    border-radius: 6px;
+    background: var(--卡片底);
+    color: var(--文字);
+    cursor: pointer;
+  }
+  button:hover { background: var(--底色); }
+  button.primary {
+    background: var(--主色);
+    border-color: var(--主色);
+    color: #fff;
+  }
+  button.primary:hover { background: #1d4ed8; }
+  button.danger { color: var(--危險); border-color: #f0b4b4; }
+  button.danger:hover { background: #fdeaea; }
+
+  /* ===== 看板 ===== */
+  main#board { padding: 16px; }
+  .weekend-note {
+    max-width: 480px;
+    margin: 48px auto;
+    padding: 32px;
+    text-align: center;
+    background: var(--卡片底);
+    border: 1px dashed var(--邊框);
+    border-radius: 10px;
+    color: var(--次要文字);
+    font-size: 16px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 72px repeat(3, 1fr);
+    background: var(--卡片底);
+    border: 1px solid var(--邊框);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  .grid .head {
+    padding: 10px 8px;
+    font-weight: 600;
+    text-align: center;
+    background: var(--底色);
+    border-bottom: 1px solid var(--邊框);
+  }
+  .grid .head.time-head { background: var(--底色); }
+  .grid .time-label {
+    padding: 6px 8px;
+    font-size: 13px;
+    color: var(--次要文字);
+    text-align: right;
+    border-bottom: 1px solid var(--邊框);
+    border-right: 1px solid var(--邊框);
+    white-space: nowrap;
+  }
+  .grid .cell {
+    min-height: 46px;
+    padding: 4px;
+    border-bottom: 1px solid var(--邊框);
+    border-right: 1px solid var(--邊框);
+    cursor: pointer;
+    position: relative;
+  }
+  .grid .cell:nth-child(4n) { border-right: none; }
+  .grid .cell.free:hover { background: var(--主色淡); }
+  .grid .cell.free::after {
+    content: "＋";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--邊框);
+    font-size: 18px;
+    opacity: 0;
+  }
+  .grid .cell.free:hover::after { opacity: 1; }
+  .grid .cell.covered { cursor: default; }
+  .booking {
+    height: 100%;
+    padding: 4px 6px;
+    background: var(--已預約底);
+    border: 1px solid var(--已預約邊);
+    border-radius: 6px;
+    font-size: 13px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .booking .b-name { font-weight: 600; }
+  .booking .b-topic { color: var(--次要文字); }
+  .grid .row-now { background: #fff8f8; }
+  .now-line {
+    position: absolute;
+    left: 72px;
+    right: 0;
+    height: 2px;
+    background: var(--現在線);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .now-line::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--現在線);
+  }
+
+  /* ===== 表單對話框 ===== */
+  dialog#booking-form {
+    border: 1px solid var(--邊框);
+    border-radius: 12px;
+    padding: 0;
+    width: min(420px, 92vw);
+  }
+  dialog#booking-form::backdrop { background: rgba(15, 23, 42, .4); }
+  .form-body { padding: 20px; }
+  .form-body h2 { margin: 0 0 16px; font-size: 17px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; margin-bottom: 4px; font-size: 13px; color: var(--次要文字); }
+  .field input, .field select {
+    width: 100%;
+    padding: 7px 9px;
+    font: inherit;
+    border: 1px solid var(--邊框);
+    border-radius: 6px;
+  }
+  .field .readonly { padding: 7px 9px; background: var(--底色); border-radius: 6px; }
+  .time-row { display: flex; gap: 10px; }
+  .time-row .field { flex: 1; }
+  .form-error {
+    margin: 4px 0 12px;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: var(--危險);
+    background: #fdeaea;
+    border-radius: 6px;
+    display: none;
+  }
+  .form-error.show { display: block; }
+  .form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .form-actions .spacer { flex: 1; }
+</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <h1>會議室預約看板</h1>
+  <button id="prev-day" title="前一個工作日">◀</button>
+  <span class="date-title" id="date-title">—</span>
+  <button id="next-day" title="後一個工作日">▶</button>
+  <button id="today-btn">回到今天</button>
+  <span class="spacer"></span>
+  <button id="export-btn">匯出 JSON</button>
+  <button id="import-btn">匯入 JSON</button>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <button id="clear-btn" class="danger">清除全部</button>
+</header>
+
+<main id="board"></main>
+
+<dialog id="booking-form">
+  <form method="dialog" class="form-body" id="form-el">
+    <h2 id="form-title">新增預約</h2>
+    <div class="field">
+      <label>會議室</label>
+      <div class="readonly" id="f-room">—</div>
+    </div>
+    <div class="field">
+      <label>日期</label>
+      <div class="readonly" id="f-date">—</div>
+    </div>
+    <div class="time-row">
+      <div class="field">
+        <label for="f-start">開始時間</label>
+        <select id="f-start"></select>
+      </div>
+      <div class="field">
+        <label for="f-end">結束時間</label>
+        <select id="f-end"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-name">預約人姓名（必填）</label>
+      <input type="text" id="f-name" maxlength="30" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="f-topic">會議主題（必填）</label>
+      <input type="text" id="f-topic" maxlength="60" autocomplete="off">
+    </div>
+    <div class="form-error" id="form-error"></div>
+    <div class="form-actions">
+      <button type="button" id="f-delete" class="danger" hidden>取消預約</button>
+      <span class="spacer"></span>
+      <button type="button" id="f-cancel">關閉</button>
+      <button type="button" id="f-submit" class="primary">送出</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+/* ===================================================================
+   會議室預約看板 —— 單機、純前端、資料存於 localStorage
+   資料模型：booking = { id, roomId, date, startHour, endHour, name, topic, createdAt }
+   =================================================================== */
+
+/* ---------- 常數（可依需要調整）---------- */
+const ROOMS = [
+  { id: 'A', name: '會議室 A' },
+  { id: 'B', name: '會議室 B' },
+  { id: 'C', name: '會議室 C' },
+];
+const OPEN_HOUR = 9;    // 上班時間起點
+const CLOSE_HOUR = 18;  // 下班時間（最後一個可預約時段為 17:00–18:00）
+const STORAGE_KEY = 'meeting-room-board/bookings/v1';
+const WEEKDAY_NAMES = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+
+/* ---------- 應用狀態 ---------- */
+const state = {
+  bookings: [],   // 全部預約
+  viewDate: '',   // 目前檢視日期（YYYY-MM-DD）
+};
+
+/* ---------- 儲存層 ---------- */
+// 從 localStorage 讀入預約；解析失敗時回空陣列（不讓壞資料卡住畫面）
+function loadBookings() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter(isValidBooking) : [];
+  } catch (e) {
+    console.warn('讀取預約資料失敗，改用空清單', e);
+    return [];
+  }
+}
+// 將目前預約寫回 localStorage
+function saveBookings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.bookings));
+  } catch (e) {
+    alert('儲存失敗：瀏覽器可能停用了 localStorage 或空間已滿。');
+  }
+}
+// 檢查一筆資料是否為合法預約物件
+function isValidBooking(b) {
+  return b && typeof b === 'object'
+    && typeof b.id === 'string'
+    && ROOMS.some(r => r.id === b.roomId)
+    && /^\d{4}-\d{2}-\d{2}$/.test(b.date)
+    && Number.isInteger(b.startHour) && Number.isInteger(b.endHour)
+    && b.startHour < b.endHour
+    && typeof b.name === 'string' && b.name.trim() !== ''
+    && typeof b.topic === 'string' && b.topic.trim() !== '';
+}
+
+/* ---------- 日期工具 ---------- */
+// 取得本機今天的日期字串（YYYY-MM-DD）
+function todayStr() {
+  return toDateStr(new Date());
+}
+function toDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+// 由日期字串建立本機 Date（固定為當天中午，避免時區跨日）
+function dateFromStr(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
+// 是否為週六或週日
+function isWeekend(s) {
+  const wd = dateFromStr(s).getDay();
+  return wd === 0 || wd === 6;
+}
+// 從指定日期往 dir 方向（+1／-1）找到最近的工作日
+function shiftToWeekday(s, dir) {
+  const d = dateFromStr(s);
+  do {
+    d.setDate(d.getDate() + dir);
+  } while (d.getDay() === 0 || d.getDay() === 6);
+  return toDateStr(d);
+}
+// 顯示用的日期標題，例如「2026-09-02（週三）」
+function fmtDateTitle(s) {
+  return `${s}（${WEEKDAY_NAMES[dateFromStr(s).getDay()]}）`;
+}
+// 時：分 格式，例如 9 -> "09:00"
+function fmtHour(h) {
+  return String(h).padStart(2, '0') + ':00';
+}
+
+/* ---------- 預約工具 ---------- */
+// 產生唯一 id
+function genId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+// 取得某會議室某日的所有預約
+function bookingsOf(roomId, dateStr) {
+  return state.bookings.filter(b => b.roomId === roomId && b.date === dateStr);
+}
+// 取得覆蓋「某會議室某日某整點」的預約（找不到回 undefined）
+function bookingAt(roomId, dateStr, hour) {
+  return bookingsOf(roomId, dateStr)
+    .find(b => b.startHour <= hour && b.endHour > hour);
+}
+// 衝突檢查：檢查 [startHour, endHour) 每一小時是否已被同室同日的其他預約占用
+// excludeId 用於「修改」時排除自己
+function hasConflict(roomId, dateStr, startHour, endHour, excludeId) {
+  return state.bookings.some(b =>
+    b.roomId === roomId &&
+    b.date === dateStr &&
+    b.id !== excludeId &&
+    b.startHour < endHour &&
+    b.endHour > startHour
+  );
+}
+
+/* ---------- 渲染 ---------- */
+const boardEl = document.getElementById('board');
+const dateTitleEl = document.getElementById('date-title');
+
+function render() {
+  // 工具列日期標題
+  const isToday = state.viewDate === todayStr();
+  dateTitleEl.innerHTML = escapeHtml(fmtDateTitle(state.viewDate))
+    + (isToday ? '<span class="today-badge">今天</span>' : '');
+
+  boardEl.innerHTML = '';
+
+  // 週末：不畫看板，顯示休息訊息
+  if (isWeekend(state.viewDate)) {
+    const note = document.createElement('div');
+    note.className = 'weekend-note';
+    note.textContent = '週末休息，不開放預約。請用上方「◀ / ▶」切換到工作日。';
+    boardEl.appendChild(note);
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+
+  // 標題列：左上角 + 3 間會議室
+  const timeHead = document.createElement('div');
+  timeHead.className = 'head time-head';
+  timeHead.textContent = '時間';
+  grid.appendChild(timeHead);
+  for (const room of ROOMS) {
+    const h = document.createElement('div');
+    h.className = 'head';
+    h.textContent = room.name;
+    grid.appendChild(h);
+  }
+
+  const nowHour = new Date().getHours();
+
+  // 每個整點一列
+  for (let hour = OPEN_HOUR; hour < CLOSE_HOUR; hour++) {
+    const label = document.createElement('div');
+    label.className = 'time-label';
+    label.textContent = fmtHour(hour) + '–' + fmtHour(hour + 1);
+    if (isToday && hour === nowHour) label.classList.add('row-now');
+    grid.appendChild(label);
+
+    for (const room of ROOMS) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (isToday && hour === nowHour) cell.classList.add('row-now');
+
+      const b = bookingAt(room.id, state.viewDate, hour);
+      if (b) {
+        if (b.startHour === hour) {
+          // 預約的第一個小時：讓這一格跨越所需列數，內容區塊填滿整格
+          cell.style.gridRow = 'span ' + (b.endHour - b.startHour);
+          const block = document.createElement('div');
+          block.className = 'booking';
+          block.innerHTML =
+            `<div class="b-name">${escapeHtml(b.name)}</div>` +
+            `<div class="b-topic">${escapeHtml(b.topic)} · ${fmtHour(b.startHour)}–${fmtHour(b.endHour)}</div>`;
+          block.addEventListener('click', () => openEditForm(b.id));
+          cell.appendChild(block);
+          cell.classList.add('covered');
+        } else {
+          // 預約的後續小時：由上一格的區塊以 grid-row span 覆蓋，這裡留空
+          cell.classList.add('covered');
+          cell.style.display = 'none';
+        }
+      } else {
+        cell.classList.add('free');
+        cell.addEventListener('click', () => openCreateForm(room.id, hour));
+      }
+      grid.appendChild(cell);
+    }
+  }
+
+  boardEl.appendChild(grid);
+
+  // 今天：加上「現在時間線」
+  if (isToday && nowHour >= OPEN_HOUR && nowHour < CLOSE_HOUR) {
+    drawNowLine(grid);
+  }
+}
+
+// 依目前時間在看板上畫一條紅線
+function drawNowLine(grid) {
+  const now = new Date();
+  const minutesFromOpen = (now.getHours() - OPEN_HOUR) * 60 + now.getMinutes();
+  const totalMinutes = (CLOSE_HOUR - OPEN_HOUR) * 60;
+  const headH = grid.querySelector('.head').offsetHeight;
+  const bodyH = grid.offsetHeight - headH;
+  const y = headH + bodyH * (minutesFromOpen / totalMinutes);
+  const line = document.createElement('div');
+  line.className = 'now-line';
+  line.style.top = y + 'px';
+  grid.appendChild(line);
+}
+
+// 簡易 HTML 逸出，避免姓名／主題含特殊字元破版
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+/* ---------- 預約表單 ---------- */
+const dialog = document.getElementById('booking-form');
+const formTitleEl = document.getElementById('form-title');
+const fRoomEl = document.getElementById('f-room');
+const fDateEl = document.getElementById('f-date');
+const fStartEl = document.getElementById('f-start');
+const fEndEl = document.getElementById('f-end');
+const fNameEl = document.getElementById('f-name');
+const fTopicEl = document.getElementById('f-topic');
+const fErrorEl = document.getElementById('form-error');
+const fDeleteBtn = document.getElementById('f-delete');
+
+let editingId = null;      // 目前正在編輯的預約 id；null 代表新增
+let formRoomId = null;     // 表單對應的會議室
+
+// 填入開始／結束時間下拉選項
+function fillHourOptions() {
+  fStartEl.innerHTML = '';
+  fEndEl.innerHTML = '';
+  for (let h = OPEN_HOUR; h < CLOSE_HOUR; h++) {
+    fStartEl.add(new Option(fmtHour(h), String(h)));
+  }
+  for (let h = OPEN_HOUR + 1; h <= CLOSE_HOUR; h++) {
+    fEndEl.add(new Option(fmtHour(h), String(h)));
+  }
+}
+
+function showFormError(msg) {
+  fErrorEl.textContent = msg;
+  fErrorEl.classList.add('show');
+}
+function clearFormError() {
+  fErrorEl.textContent = '';
+  fErrorEl.classList.remove('show');
+}
+
+// 開啟「新增預約」表單
+function openCreateForm(roomId, hour) {
+  editingId = null;
+  formRoomId = roomId;
+  formTitleEl.textContent = '新增預約';
+  fRoomEl.textContent = ROOMS.find(r => r.id === roomId).name;
+  fDateEl.textContent = fmtDateTitle(state.viewDate);
+  fStartEl.value = String(hour);
+  fEndEl.value = String(Math.min(hour + 1, CLOSE_HOUR));
+  fNameEl.value = '';
+  fTopicEl.value = '';
+  fDeleteBtn.hidden = true;
+  clearFormError();
+  dialog.showModal();
+  fNameEl.focus();
+}
+
+// 開啟「修改預約」表單
+function openEditForm(id) {
+  const b = state.bookings.find(x => x.id === id);
+  if (!b) return;
+  editingId = id;
+  formRoomId = b.roomId;
+  formTitleEl.textContent = '修改預約';
+  fRoomEl.textContent = ROOMS.find(r => r.id === b.roomId).name;
+  fDateEl.textContent = fmtDateTitle(b.date);
+  fStartEl.value = String(b.startHour);
+  fEndEl.value = String(b.endHour);
+  fNameEl.value = b.name;
+  fTopicEl.value = b.topic;
+  fDeleteBtn.hidden = false;
+  clearFormError();
+  dialog.showModal();
+  fNameEl.focus();
+}
+
+// 送出表單（新增或修改共用）
+function submitForm() {
+  clearFormError();
+  const name = fNameEl.value.trim();
+  const topic = fTopicEl.value.trim();
+  const startHour = Number(fStartEl.value);
+  const endHour = Number(fEndEl.value);
+  const dateStr = editingId
+    ? state.bookings.find(b => b.id === editingId).date
+    : state.viewDate;
+
+  if (!name) return showFormError('請填寫預約人姓名。');
+  if (!topic) return showFormError('請填寫會議主題。');
+  if (endHour <= startHour) return showFormError('結束時間必須晚於開始時間。');
+  if (hasConflict(formRoomId, dateStr, startHour, endHour, editingId)) {
+    return showFormError('該會議室在這個時段（或其中某一小時）已有預約，請改選其他時段。');
+  }
+
+  if (editingId) {
+    const b = state.bookings.find(x => x.id === editingId);
+    b.startHour = startHour;
+    b.endHour = endHour;
+    b.name = name;
+    b.topic = topic;
+  } else {
+    state.bookings.push({
+      id: genId(),
+      roomId: formRoomId,
+      date: dateStr,
+      startHour, endHour,
+      name, topic,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  saveBookings();
+  dialog.close();
+  render();
+}
+
+// 刪除目前編輯中的預約（需二次確認）
+function deleteCurrentBooking() {
+  if (!editingId) return;
+  if (!confirm('確定要取消這筆預約嗎？此動作無法復原。')) return;
+  state.bookings = state.bookings.filter(b => b.id !== editingId);
+  saveBookings();
+  dialog.close();
+  render();
+}
+
+/* ---------- 匯出 / 匯入 / 清除 ---------- */
+// 匯出目前所有預約為 JSON 檔
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(state.bookings, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `會議室預約-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// 匯入 JSON 檔：整批取代目前資料（匯入前二次確認）
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let arr;
+    try {
+      arr = JSON.parse(reader.result);
+    } catch (e) {
+      alert('匯入失敗：檔案不是有效的 JSON。');
+      return;
+    }
+    if (!Array.isArray(arr) || !arr.every(isValidBooking)) {
+      alert('匯入失敗：檔案內容格式不符（應為預約資料陣列）。');
+      return;
+    }
+    if (!confirm(`即將以檔案中的 ${arr.length} 筆預約「取代」目前全部資料，確定嗎？`)) return;
+    state.bookings = arr;
+    saveBookings();
+    render();
+    alert('匯入完成。');
+  };
+  reader.onerror = () => alert('匯入失敗：無法讀取檔案。');
+  reader.readAsText(file);
+}
+
+// 清除全部預約（需二次確認）
+function clearAll() {
+  if (!confirm('確定要清除「全部」預約嗎？此動作無法復原，建議先匯出備份。')) return;
+  state.bookings = [];
+  saveBookings();
+  render();
+}
+
+/* ---------- 事件綁定 ---------- */
+document.getElementById('prev-day').addEventListener('click', () => {
+  state.viewDate = shiftToWeekday(state.viewDate, -1);
+  render();
+});
+document.getElementById('next-day').addEventListener('click', () => {
+  state.viewDate = shiftToWeekday(state.viewDate, 1);
+  render();
+});
+document.getElementById('today-btn').addEventListener('click', () => {
+  state.viewDate = todayStr();
+  render();
+});
+document.getElementById('export-btn').addEventListener('click', exportJSON);
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) importJSON(file);
+  e.target.value = '';  // 允許再次選擇同一個檔案
+});
+document.getElementById('clear-btn').addEventListener('click', clearAll);
+
+document.getElementById('f-submit').addEventListener('click', submitForm);
+document.getElementById('f-cancel').addEventListener('click', () => dialog.close());
+fDeleteBtn.addEventListener('click', deleteCurrentBooking);
+document.getElementById('form-el').addEventListener('submit', (e) => {
+  e.preventDefault();
+  submitForm();
+});
+// 開始時間變動時，自動把結束時間拉到至少晚一小時
+fStartEl.addEventListener('change', () => {
+  if (Number(fEndEl.value) <= Number(fStartEl.value)) {
+    fEndEl.value = String(Math.min(Number(fStartEl.value) + 1, CLOSE_HOUR));
+  }
+});
+
+/* ---------- 啟動 ---------- */
+fillHourOptions();
+state.bookings = loadBookings();
+state.viewDate = todayStr();
+if (isWeekend(state.viewDate)) {
+  // 逢週末啟動時，先跳到下一個工作日（週末畫面仍可用 ◀ 切回檢視）
+  state.viewDate = shiftToWeekday(state.viewDate, 1);
+}
+render();
+
+// 每分鐘更新一次「現在時間線」與當前時段高亮
+setInterval(() => {
+  if (state.viewDate === todayStr()) render();
+}, 60 * 1000);
+</script>
+</body>
+</html>
