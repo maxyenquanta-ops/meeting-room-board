@@ -11,6 +11,7 @@ The app is implemented in `index.html` + `app.js`, with tests in `test.html`. `s
 - **Three files only.** The app is `index.html` + `app.js` + `test.html` at the repo root. `index.html` holds all HTML/CSS and the bulk of the JS inline; `app.js` holds the booking-conflict logic and is loaded via a plain `<script src="app.js">` tag (NOT an ES module, since the page is opened by double-clicking the file); `test.html` holds the tests. Do not split into any further files (no separate `.css`, no more `.js`, no modules) and do not introduce any external framework or library (no React, Vue, jQuery, Tailwind, etc.). Plain HTML/CSS/vanilla JS.
 - **Traditional Chinese everywhere.** All UI text and all code comments are written in Traditional Chinese (繁體中文).
 - **After every change, state what changed in one sentence.**
+- **Conventional Commits.** All commit messages use the Conventional Commits format with a `feat:` / `fix:` / `docs:` / `refactor:` prefix (add other standard types such as `test:` / `chore:` as needed). After the colon, describe what changed in Traditional Chinese (繁體中文), e.g. `feat: 新增深色模式切換`.
 
 ## What this project is
 
