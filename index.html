@@ -398,6 +398,7 @@ function hasConflict(roomId, dateStr, startHour, endHour, excludeId) {
     b.roomId === roomId &&
     b.date === dateStr &&
     b.id !== excludeId &&
+    // 兩個區間 [b.startHour, b.endHour) 與 [startHour, endHour) 有交集即為衝突
     b.startHour < endHour &&
     b.endHour > startHour
   );
