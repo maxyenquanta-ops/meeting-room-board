@@ -236,6 +236,7 @@
   <button id="today-btn">回到今天</button>
   <span class="spacer"></span>
   <button id="export-btn">匯出 JSON</button>
+  <button id="export-csv-btn">匯出 CSV</button>
   <button id="import-btn">匯入 JSON</button>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
   <button id="clear-btn" class="danger">清除全部</button>
@@ -660,6 +661,45 @@ function exportJSON() {
   URL.revokeObjectURL(url);
 }
 
+// 匯出目前檢視日期的預約清單為 CSV（欄位：會議室、時段、預約人）
+function exportCSV() {
+  // 只取目前檢視日期的預約，依會議室、開始時間排序
+  const rows = state.bookings
+    .filter(b => b.date === state.viewDate)
+    .sort((a, b) =>
+      a.roomId.localeCompare(b.roomId) || a.startHour - b.startHour);
+
+  if (rows.length === 0) {
+    alert(`${state.viewDate} 目前沒有任何預約，無法匯出 CSV。`);
+    return;
+  }
+
+  // 將單一欄位值逸出為合法 CSV 欄位（含逗號、引號、換行時以雙引號包住）
+  const esc = v => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  const header = ['會議室', '時段', '預約人'];
+  const lines = [header.join(',')];
+  for (const b of rows) {
+    const roomName = (ROOMS.find(r => r.id === b.roomId) || {}).name || b.roomId;
+    const slot = fmtHour(b.startHour) + '–' + fmtHour(b.endHour);
+    lines.push([roomName, slot, b.name].map(esc).join(','));
+  }
+
+  // 加上 UTF-8 BOM，讓 Excel 正確辨識中文
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `會議室預約-${state.viewDate}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // 匯入 JSON 檔：整批取代目前資料（匯入前二次確認）
 function importJSON(file) {
   const reader = new FileReader();
@@ -707,6 +747,7 @@ document.getElementById('today-btn').addEventListener('click', () => {
   render();
 });
 document.getElementById('export-btn').addEventListener('click', exportJSON);
+document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
 document.getElementById('import-btn').addEventListener('click', () => {
   document.getElementById('import-file').click();
 });
