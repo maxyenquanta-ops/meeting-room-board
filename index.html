@@ -139,6 +139,7 @@
   .grid .cell.free:hover::after { opacity: 1; }
   .grid .cell.covered { cursor: default; }
   .booking {
+    position: relative;
     height: 100%;
     padding: 4px 6px;
     background: var(--已預約底);
@@ -150,6 +151,20 @@
   }
   .booking .b-name { font-weight: 600; }
   .booking .b-topic { color: var(--次要文字); }
+  /* 看板上每筆預約右上角的「取消」按鈕 */
+  .booking .b-cancel {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    padding: 0 5px;
+    font-size: 11px;
+    line-height: 18px;
+    color: var(--危險);
+    border: 1px solid #f0b4b4;
+    border-radius: 4px;
+    background: var(--卡片底);
+  }
+  .booking .b-cancel:hover { background: #fdeaea; }
   .grid .row-now { background: #fff8f8; }
   .now-line {
     position: absolute;
@@ -449,6 +464,17 @@ function render() {
             `<div class="b-name">${escapeHtml(b.name)}</div>` +
             `<div class="b-topic">${escapeHtml(b.topic)} · ${fmtHour(b.startHour)}–${fmtHour(b.endHour)}</div>`;
           block.addEventListener('click', () => openEditForm(b.id));
+          // 看板上直接取消這筆預約（需二次確認）
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'b-cancel';
+          delBtn.textContent = '取消';
+          delBtn.title = '取消這筆預約';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();   // 不要同時觸發區塊的「開啟修改對話框」
+            deleteBookingById(b.id);
+          });
+          block.appendChild(delBtn);
           cell.appendChild(block);
           cell.classList.add('covered');
         } else {
@@ -604,14 +630,20 @@ function submitForm() {
   render();
 }
 
+// 依 id 刪除一筆預約（需二次確認）；成功刪除回傳 true
+// 看板上的「取消」按鈕與對話框內的「取消預約」按鈕共用此函式
+function deleteBookingById(id) {
+  if (!id) return false;
+  if (!confirm('確定要取消這筆預約嗎？此動作無法復原。')) return false;
+  state.bookings = state.bookings.filter(b => b.id !== id);
+  saveBookings();   // 同步寫回 localStorage
+  render();          // 重繪看板
+  return true;
+}
+
 // 刪除目前編輯中的預約（需二次確認）
 function deleteCurrentBooking() {
-  if (!editingId) return;
-  if (!confirm('確定要取消這筆預約嗎？此動作無法復原。')) return;
-  state.bookings = state.bookings.filter(b => b.id !== editingId);
-  saveBookings();
-  dialog.close();
-  render();
+  if (deleteBookingById(editingId)) dialog.close();
 }
 
 /* ---------- 匯出 / 匯入 / 清除 ---------- */
