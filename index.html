@@ -18,13 +18,34 @@
     --已預約底: #e8f0ff;
     --已預約邊: #9db8f0;
     --現在線: #e11d48;
+    --現在列底: #fff8f8;
     --危險: #dc2626;
+    --危險淡: #fdeaea;
+    --危險邊: #f0b4b4;
+  }
+  /* 深色模式：只覆寫色票，維持文字與底色對比 */
+  body.dark {
+    --邊框: #3a4150;
+    --底色: #12151c;
+    --卡片底: #1b1f27;
+    --文字: #e6e9ef;
+    --次要文字: #9aa3b2;
+    --主色: #3b82f6;
+    --主色淡: #24324a;
+    --已預約底: #24324a;
+    --已預約邊: #3b5687;
+    --現在線: #f43f5e;
+    --現在列底: #2a1e22;
+    --危險: #f87171;
+    --危險淡: #3a2020;
+    --危險邊: #7f3a3a;
   }
   body {
     margin: 0;
     font: 15px/1.5 "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
     color: var(--文字);
     background: var(--底色);
+    transition: background-color .2s ease, color .2s ease;
   }
 
   /* ===== 頂部工具列 ===== */
@@ -73,8 +94,8 @@
     color: #fff;
   }
   button.primary:hover { background: #1d4ed8; }
-  button.danger { color: var(--危險); border-color: #f0b4b4; }
-  button.danger:hover { background: #fdeaea; }
+  button.danger { color: var(--危險); border-color: var(--危險邊); }
+  button.danger:hover { background: var(--危險淡); }
 
   /* ===== 看板 ===== */
   main#board { padding: 16px; }
@@ -160,12 +181,12 @@
     font-size: 11px;
     line-height: 18px;
     color: var(--危險);
-    border: 1px solid #f0b4b4;
+    border: 1px solid var(--危險邊);
     border-radius: 4px;
     background: var(--卡片底);
   }
-  .booking .b-cancel:hover { background: #fdeaea; }
-  .grid .row-now { background: #fff8f8; }
+  .booking .b-cancel:hover { background: var(--危險淡); }
+  .grid .row-now { background: var(--現在列底); }
   .now-line {
     position: absolute;
     left: 72px;
@@ -213,7 +234,7 @@
     padding: 8px 10px;
     font-size: 13px;
     color: var(--危險);
-    background: #fdeaea;
+    background: var(--危險淡);
     border-radius: 6px;
     display: none;
   }
@@ -230,6 +251,7 @@
 
 <header class="toolbar">
   <h1>會議室預約看板</h1>
+  <button id="theme-toggle" title="切換深色／淺色模式">🌙 深色</button>
   <button id="prev-day" title="前一個工作日">◀</button>
   <span class="date-title" id="date-title">—</span>
   <button id="next-day" title="後一個工作日">▶</button>
@@ -725,6 +747,32 @@ function clearAll() {
   render();
 }
 
+/* ---------- 深色模式 ---------- */
+const THEME_KEY = 'meeting-room-board/theme/v1';
+const themeToggleBtn = document.getElementById('theme-toggle');
+
+// 套用主題：'dark' 時於 body 加上 .dark，並更新按鈕文字
+function applyTheme(theme) {
+  const dark = theme === 'dark';
+  document.body.classList.toggle('dark', dark);
+  themeToggleBtn.textContent = dark ? '☀️ 淺色' : '🌙 深色';
+}
+
+// 讀取先前選擇的主題（讀不到或非 dark 一律當淺色）
+function loadTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  } catch (e) {
+    return 'light';
+  }
+}
+
+themeToggleBtn.addEventListener('click', () => {
+  const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* 存不了就只在本次生效 */ }
+  applyTheme(next);
+});
+
 /* ---------- 事件綁定 ---------- */
 document.getElementById('prev-day').addEventListener('click', () => {
   state.viewDate = shiftToWeekday(state.viewDate, -1);
@@ -765,6 +813,7 @@ fStartEl.addEventListener('change', () => {
 });
 
 /* ---------- 啟動 ---------- */
+applyTheme(loadTheme());
 fillHourOptions();
 state.bookings = loadBookings();
 state.viewDate = todayStr();
