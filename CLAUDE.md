@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-The repo currently contains only `spec.md` (a Traditional Chinese requirements spec) and no implementation. `spec.md` is the source of truth — read it before building anything. There is no build tooling, test runner, or `package.json` yet; if you add any, document the commands here.
+The app is implemented in `index.html` + `app.js`, with tests in `test.html`. `spec.md` (a Traditional Chinese requirements spec) is the source of truth — read it before changing behaviour. There is no build tooling or `package.json`; `test.html` is opened directly in a browser to run the tests.
 
 ## Development conventions
 
-- **One file only.** The entire app is a single `index.html` at the repo root — HTML, CSS, and JS all inline. Do not split into multiple files (no separate `.css`/`.js`, no modules) and do not introduce any external framework or library (no React, Vue, jQuery, Tailwind, etc.). Plain HTML/CSS/vanilla JS.
+- **Three files only.** The app is `index.html` + `app.js` + `test.html` at the repo root. `index.html` holds all HTML/CSS and the bulk of the JS inline; `app.js` holds the booking-conflict logic and is loaded via a plain `<script src="app.js">` tag (NOT an ES module, since the page is opened by double-clicking the file); `test.html` holds the tests. Do not split into any further files (no separate `.css`, no more `.js`, no modules) and do not introduce any external framework or library (no React, Vue, jQuery, Tailwind, etc.). Plain HTML/CSS/vanilla JS.
 - **Traditional Chinese everywhere.** All UI text and all code comments are written in Traditional Chinese (繁體中文).
 - **After every change, state what changed in one sentence.**
 
